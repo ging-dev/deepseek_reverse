@@ -1,8 +1,17 @@
 import base64
-from contextlib import contextmanager
 import json
+import os
+from contextlib import contextmanager
 from curl_cffi.requests import Session
-from typing import cast, TypedDict, ContextManager, Iterator, Literal, overload
+from typing import (
+    cast,
+    overload,
+    TypedDict,
+    ContextManager,
+    Iterator,
+    Literal,
+    Optional,
+)
 from ._internal import DeepSeekHash
 
 _deepseek_hash = DeepSeekHash()
@@ -17,27 +26,38 @@ class Message(TypedDict):
 
 @overload
 def completion(
-    token: str, messages: list[Message], stream: Literal[True]
+    messages: list[Message],
+    stream: Literal[True],
+    search_enabled: bool = False,
+    thinking_enabled: bool = False,
+    token: Optional[str] = None,
 ) -> ContextManager[Iterator[str]]: ...
 
 
 @overload
 def completion(
-    token: str, messages: list[Message], stream: Literal[False]
+    messages: list[Message],
+    stream: Literal[False],
+    search_enabled: bool = False,
+    thinking_enabled: bool = False,
+    token: Optional[str] = None,
 ) -> ContextManager[str]: ...
 
 
-@overload
-def completion(
-    token: str, messages: list[Message], stream: bool
-) -> ContextManager[Iterator[str] | str]: ...
-
-
 @contextmanager
-def completion(token: str, messages: list[Message], stream: bool = False):
+def completion(
+    messages: list[Message],
+    stream: bool,
+    search_enabled: bool = False,
+    thinking_enabled: bool = False,
+    token: Optional[str] = None,
+) -> ContextManager[Iterator[str] | str]:  # type: ignore
     from jinja2 import Environment
 
     prompt = Environment().from_string(CHAT_TEMPLATE).render(messages=messages)
+    token = token or os.environ.get("DEEPSEEK_TOKEN")
+    if not token:
+        raise RuntimeError("Missing token")
     session = Session(
         base_url="https://chat.deepseek.com/api/v0/",
         impersonate="chrome",
@@ -74,8 +94,8 @@ def completion(token: str, messages: list[Message], stream: bool = False):
                 "parent_message_id": None,
                 "prompt": prompt,
                 "ref_file_ids": [],
-                "thinking_enabled": False,
-                "search_enabled": False,
+                "thinking_enabled": thinking_enabled,
+                "search_enabled": search_enabled,
             },
             headers={
                 "x-ds-pow-response:": base64.b64encode(json.dumps(challenge).encode())
@@ -87,7 +107,7 @@ def completion(token: str, messages: list[Message], stream: bool = False):
             line: bytes
             for line in response.iter_lines():
                 line = line.decode()
-                if ":" in line and "{" in line:
+                if "{" in line:
                     chunk = json.loads(line.split(":", 1)[1])
                     try:
                         yield cast(str, chunk["choices"][0]["delta"]["content"])
