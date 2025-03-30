@@ -1,4 +1,6 @@
+import json
 import struct
+from contextlib import suppress
 from pathlib import Path
 from wasmtime import Store, Module, Instance, Memory, Func
 from typing import cast, Optional
@@ -73,3 +75,13 @@ class DeepSeekHash:
         finally:
             # Free stack space
             self._get_func("__wbindgen_add_to_stack_pointer")(self.store, 16)
+
+
+def parse_line(line: bytes) -> Optional[str]:
+    data = line.decode()
+    if "{" in data:
+        chunk = json.loads(data.split(":", 1)[1])
+        with suppress(KeyError):
+            return chunk["choices"][0]["delta"]["content"]
+
+    return None
