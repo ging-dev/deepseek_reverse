@@ -1,7 +1,9 @@
+import json
 import struct
+from contextlib import suppress
 from pathlib import Path
-from wasmtime import Store, Module, Instance
-from typing import Optional
+from wasmtime import Store, Module, Instance, Memory, Func
+from typing import cast, Optional
 
 
 class DeepSeekHash:
@@ -15,11 +17,17 @@ class DeepSeekHash:
             [],
         ).exports(self.store)
 
+    def _get_memory(self):
+        return cast(Memory, self.wasm_exports["memory"])
+
+    def _get_func(self, name: str) -> Func:
+        return cast(Func, self.wasm_exports[name])
+
     def encode_string(self, text: str):
         encoded = text.encode()
         encoded_len = len(encoded)
-        ptr = self.wasm_exports["__wbindgen_export_0"](self.store, encoded_len, 1)
-        memory = self.wasm_exports["memory"].data_ptr(self.store)
+        ptr = self._get_func("__wbindgen_export_0")(self.store, encoded_len, 1)
+        memory = self._get_memory().data_ptr(self.store)
         for i, char_code in enumerate(encoded):
             memory[ptr + i] = char_code
 
@@ -41,22 +49,19 @@ class DeepSeekHash:
 
         try:
             # Allocate stack space
-            retptr = self.wasm_exports["__wbindgen_add_to_stack_pointer"](
-                self.store, -16
-            )
+            retptr = self._get_func("__wbindgen_add_to_stack_pointer")(self.store, -16)
 
             # Get encoded pointers and lengths
             ptr0, len0 = self.encode_string(challenge)
             ptr1, len1 = self.encode_string(prefix)
 
             # Call the WASM function
-            self.wasm_exports["wasm_solve"](
+            self._get_func("wasm_solve")(
                 self.store, retptr, ptr0, len0, ptr1, len1, float(difficulty)
             )
 
             # Get the return result
-            memory = self.wasm_exports["memory"]
-            data = memory.data_ptr(self.store)
+            data = self._get_memory().data_ptr(self.store)
 
             # Read 4-byte status and 8-byte float value
             status = struct.unpack("<i", bytes(data[retptr : retptr + 4]))[0]
@@ -69,4 +74,14 @@ class DeepSeekHash:
 
         finally:
             # Free stack space
-            self.wasm_exports["__wbindgen_add_to_stack_pointer"](self.store, 16)
+            self._get_func("__wbindgen_add_to_stack_pointer")(self.store, 16)
+
+
+def parse_line(line: bytes) -> Optional[str]:
+    data = line.decode()
+    if "{" in data:
+        chunk = json.loads(data.split(":", 1)[1])
+        with suppress(KeyError):
+            return chunk["choices"][0]["delta"]["content"]
+
+    return None

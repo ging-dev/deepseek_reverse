@@ -1,1 +1,1 @@
-from .api import completion
+from .api import completion, acompletion
