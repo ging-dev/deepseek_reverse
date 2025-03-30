@@ -5,6 +5,7 @@ from contextlib import contextmanager, asynccontextmanager
 from curl_cffi.requests import AsyncSession, Session, Response
 from typing import (
     overload,
+    Any,
     AsyncIterator,
     AsyncContextManager,
     ContextManager,
@@ -79,7 +80,7 @@ def completion(
         },
     )
 
-    def do_json_request(url: str, json: dict) -> dict:
+    def do_json_request(url: str, json: dict) -> dict[str, Any]:
         response = session.post(url, json=json)
         result = response.json()
         if error := result["msg"]:
@@ -87,13 +88,12 @@ def completion(
 
         return result["data"]["biz_data"]
 
-    session_id = do_json_request(
+    session_id: str = do_json_request(
         "chat_session/create", json={"character_id": None}
-    ).get("id")
-    challenge = do_json_request(
+    )["id"]
+    challenge: dict = do_json_request(
         "chat/create_pow_challenge", json={"target_path": "/api/v0/chat/completion"}
-    ).get("challenge")
-    assert isinstance(challenge, dict)
+    )["challenge"]
     challenge["answer"] = _deepseek_hash.calculate_hash(**challenge)
 
     try:
@@ -185,7 +185,7 @@ async def acompletion(
         },
     )
 
-    async def do_json_request(url: str, json: dict) -> dict:
+    async def do_json_request(url: str, json: dict) -> dict[str, Any]:
         response = await session.post(url, json=json)
         result = response.json()
         if error := result["msg"]:
@@ -193,15 +193,14 @@ async def acompletion(
 
         return result["data"]["biz_data"]
 
-    session_id = (
+    session_id: str = (
         await do_json_request("chat_session/create", json={"character_id": None})
-    ).get("id")
-    challenge = (
+    )["id"]
+    challenge: dict = (
         await do_json_request(
             "chat/create_pow_challenge", json={"target_path": "/api/v0/chat/completion"}
         )
-    ).get("challenge")
-    assert isinstance(challenge, dict)
+    )["challenge"]
     challenge["answer"] = _deepseek_hash.calculate_hash(**challenge)
 
     try:
