@@ -17,13 +17,13 @@ class DeepSeekHash:
 
     def encode_string(self, text: str):
         encoded = text.encode()
-        str_len = len(text)
-        ptr = self.wasm_exports["__wbindgen_export_0"](self.store, str_len, 1)
+        encoded_len = len(encoded)
+        ptr = self.wasm_exports["__wbindgen_export_0"](self.store, encoded_len, 1)
         memory = self.wasm_exports["memory"].data_ptr(self.store)
         for i, char_code in enumerate(encoded):
             memory[ptr + i] = char_code
 
-        return ptr, str_len
+        return ptr, encoded_len
 
     def calculate_hash(
         self,

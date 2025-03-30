@@ -93,7 +93,6 @@ def completion(
                 "chat_session_id": session_id,
                 "parent_message_id": None,
                 "prompt": prompt,
-                "ref_file_ids": [],
                 "thinking_enabled": thinking_enabled,
                 "search_enabled": search_enabled,
             },
