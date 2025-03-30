@@ -8,11 +8,11 @@ from typing import (
     overload,
     AsyncIterator,
     AsyncContextManager,
-    TypedDict,
     ContextManager,
     Iterator,
     Literal,
     Optional,
+    TypedDict,
 )
 from ._internal import DeepSeekHash
 from jinja2 import Environment
@@ -45,6 +45,16 @@ def completion(
     thinking_enabled: bool = False,
     token: Optional[str] = None,
 ) -> ContextManager[str]: ...
+
+
+@overload
+def completion(
+    messages: list[Message],
+    stream: bool,
+    search_enabled: bool = False,
+    thinking_enabled: bool = False,
+    token: Optional[str] = None,
+) -> ContextManager[Iterator[str] | str]: ...
 
 
 @contextmanager
@@ -149,6 +159,16 @@ def acompletion(
 ) -> AsyncContextManager[str]: ...
 
 
+@overload
+def acompletion(
+    messages: list[Message],
+    stream: bool,
+    search_enabled: bool = False,
+    thinking_enabled: bool = False,
+    token: Optional[str] = None,
+) -> AsyncContextManager[AsyncIterator[str] | str]: ...
+
+
 @asynccontextmanager
 async def acompletion(
     messages: list[Message],
@@ -210,7 +230,7 @@ async def acompletion(
             stream=True,
         )
 
-        async def generate():
+        async def generate() -> AsyncIterator[str]:
             async for line in response.aiter_lines():
                 assert isinstance(line, bytes)
                 line = line.decode()
